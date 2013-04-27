@@ -52,7 +52,7 @@ function strictUsername_info()
         'website' => 'http://lukasztkacz.com',
         'author' => 'Lukasz Tkacz',
         'authorsite' => 'http://lukasztkacz.com',
-        'version' => '1.5',
+        'version' => '1.6',
         'guid' => 'a8714f2e723a507f11c1174e77c00482',
         'compatibility' => '16*'
     );
