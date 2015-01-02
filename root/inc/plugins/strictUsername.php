@@ -1,7 +1,7 @@
 <?php
 /**
  * This file is part of Strict Username plugin for MyBB.
- * Copyright (C) 2010-2013 Lukasz Tkacz <lukasamd@gmail.com>
+ * Copyright (C) Lukasz Tkacz <lukasamd@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -49,12 +49,13 @@ function strictUsername_info()
     return Array(
         'name' => $lang->strictUsernameName,
         'description' => $lang->strictUsernameDesc,
-        'website' => 'http://lukasztkacz.com',
+        'website' => 'https://tkacz.it',
         'author' => 'Lukasz Tkacz',
-        'authorsite' => 'http://lukasztkacz.com',
-        'version' => '1.6',
-        'guid' => 'a8714f2e723a507f11c1174e77c00482',
-        'compatibility' => '16*'
+        'authorsite' => 'https://tkacz.it',
+        'version' => '1.0.0',
+        'guid' => '',
+        'compatibility' => '18*',
+        'codename' => 'strict_username'
     );
 }
 
@@ -66,8 +67,6 @@ function strictUsername_install()
 {
     require_once('strictUsername.settings.php');
     strictUsernameInstaller::install();
-
-    rebuildsettings();
 }
 
 function strictUsername_is_installed()
@@ -81,24 +80,6 @@ function strictUsername_uninstall()
 {
     require_once('strictUsername.settings.php');
     strictUsernameInstaller::uninstall();
-
-    rebuildsettings();
-}
-
-/**
- * Standard MyBB activation functions 
- * 
- */
-function strictUsername_activate()
-{
-    require_once('strictUsername.tpl.php');
-    strictUsernameActivator::activate();
-}
-
-function strictUsername_deactivate()
-{
-    require_once('strictUsername.tpl.php');
-    strictUsernameActivator::deactivate();
 }
 
 /**
@@ -125,7 +106,7 @@ class strictUsername
 
         // Add all hooks
         $plugins->hooks["datahandler_user_validate"][10]["strictUsername_validateUsername"] = array("function" => create_function('', 'global $plugins; $plugins->objects[\'strictUsername\']->validateUsername();'));
-        $plugins->hooks["xmlhttp"][10]["strictUsername_validateXMLHTTP"] = array("function" => create_function('', 'global $plugins; $plugins->objects[\'strictUsername\']->validateXMLHTTP();'));
+        $plugins->hooks["xmlhttp_username_availability"][10]["strictUsername_validateXMLHTTP"] = array("function" => create_function('', 'global $plugins; $plugins->objects[\'strictUsername\']->validateXMLHTTP();'));
         $plugins->hooks["pre_output_page"][10]["strictUsername_pluginThanks"] = array("function" => create_function('&$arg', 'global $plugins; $plugins->objects[\'strictUsername\']->pluginThanks($arg);'));
     }
 
@@ -159,73 +140,16 @@ class strictUsername
      */
     public function validateXMLHTTP()
     {
-        global $charset, $db, $lang, $mybb;
+        global $charset, $db, $lang, $mybb, $username;
 
-        if ($mybb->input['action'] == "strictUsername_Validate")
+        $this->init();
+        $this->setMode($this->getConfig('Mode'));
+        $this->checkUsername($username);
+
+        if (sizeof($this->wrongChars) > 0)
         {
-            require_once MYBB_ROOT . "inc/functions_user.php";
-            $username = $mybb->input['value'];
-
-            // Fix bad characters
-            $username = trim($username);
-            $username = str_replace(array(unichr(160), unichr(173), unichr(0xCA), dec_to_utf8(8238), dec_to_utf8(8237), dec_to_utf8(8203)), array(" ", "-", "", "", "", ""), $username);
-
-            // Remove multiple spaces from the username
-            $username = preg_replace("#\s{2,}#", " ", $username);
-
-            header("Content-type: text/xml; charset={$charset}");
-            if (empty($username))
-            {
-                echo "<fail>{$lang->banned_characters_username}</fail>";
-                exit;
-            }
-
-            // Check if the username belongs to the list of banned usernames.
-            $banned_username = is_banned_username($username, true);
-            if ($banned_username)
-            {
-                echo "<fail>{$lang->banned_username}</fail>";
-                exit;
-            }
-
-            // Added by Stric Username plugin
-            $this->init();
-            $this->setMode($this->getConfig('Mode'));
-            $this->checkUsername($username);
-
-
-            // Check for certain characters in username (<, >, &, and slashes)
-            if (sizeof($this->wrongChars) > 0 || strpos($username, "<") !== false || strpos($username, ">") !== false || strpos($username, "&") !== false || my_strpos($username, "\\") !== false || strpos($username, ";") !== false)
-            {
-                echo "<fail>";
-                echo $lang->banned_characters_username;
-
-                // Added by Stric Username plugin
-                if (sizeof($this->wrongChars) > 0)
-                {
-                    echo ": '" . implode("', '", $this->wrongChars) . "'";
-                }
-
-                echo "</fail>";
-                exit;
-            }
-
-            // Check if the username is actually already in use
-            $query = $db->simple_select("users", "uid", "LOWER(username)='" . $db->escape_string(my_strtolower($username)) . "'");
-            $user = $db->fetch_array($query);
-
-            if ($user['uid'])
-            {
-                $lang->username_taken = $lang->sprintf($lang->username_taken, $username);
-                echo "<fail>{$lang->username_taken}</fail>";
-                exit;
-            }
-            else
-            {
-                $lang->username_available = $lang->sprintf($lang->username_available, $username);
-                echo "<success>{$lang->username_available}</success>";
-                exit;
-            }
+            echo json_encode($lang->banned_characters_username . ": '" . implode("', '", $this->wrongChars) . "'");
+            exit;
         }
     }
 
@@ -346,7 +270,7 @@ class strictUsername
         
         if (!isset($lukasamd_thanks) && $session->is_spider)
         {
-            $thx = '<div style="margin:auto; text-align:center;">This forum uses <a href="http://lukasztkacz.com">Lukasz Tkacz</a> MyBB addons.</div></body>';
+            $thx = '<div style="margin:auto; text-align:center;">This forum uses <a href="https://tkacz.it">Lukasz Tkacz</a> MyBB addons.</div></body>';
             $content = str_replace('</body>', $thx, $content);
             $lukasamd_thanks = true;
         }
