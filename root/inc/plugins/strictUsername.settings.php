@@ -148,6 +148,30 @@ class strictUsernameInstaller
             'gid' => $gid
         );
         $db->insert_query('settings', $setting);
+		
+		$setting = array(
+            'sid' => 'NULL',
+            'name' => 'strictUsernameStatusRegex',
+            'title' => $db->escape_string($lang->strictUsernameStatusRegex),
+            'description' => $db->escape_string($lang->strictUsernameStatusRegexDesc),
+            'optionscode' => 'text',
+            'value' => '',
+            'disporder' => $disporder++,
+            'gid' => $gid
+        );
+        $db->insert_query('settings', $setting);
+		
+		$setting = array(
+            'sid' => 'NULL',
+            'name' => 'strictUsernameStatusBlockedWords',
+            'title' => $db->escape_string($lang->strictUsernameStatusBlockedWords),
+            'description' => $db->escape_string($lang->strictUsernameStatusBlockedWordsDesc),
+            'optionscode' => 'text',
+            'value' => 'admin',
+            'disporder' => $disporder++,
+            'gid' => $gid
+        );
+        $db->insert_query('settings', $setting);
         
         rebuild_settings();
     }
