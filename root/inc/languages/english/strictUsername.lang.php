@@ -17,5 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */ 
+ 
 
-$l['strictUsernameError'] = 'Prohibited chars: ';
+$l['strictUsernameRegexError'] = 'Your username isn\'t formatted properly';
+$l['strictUsernameBlockedWordError'] = 'Your username contains a blocked word';

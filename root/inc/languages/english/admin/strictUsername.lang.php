@@ -50,3 +50,9 @@ $l['strictUsernameStatusAdditional'] = 'Additional chars';
 $l['strictUsernameStatusAdditionalDesc'] = 'Extra characters to allow/reject, for example national characters. They must be separated by a comma.';
 
 $l['strictUsernameAdditionalChars'] = '_';
+
+$l['strictUsernameStatusRegex'] = 'Regex';
+$l['strictUsernameStatusRegexDesc'] = 'Regular expression that if matches will allow/reject the username. When working mode is set to \'Allow\' this will overwrite all other rules.';
+
+$l['strictUsernameStatusBlockedWords'] = 'Blocked Words';
+$l['strictUsernameStatusBlockedWordsDesc'] = 'Words that are not allowed in a username. Seperate the words with a comma. Working mode (allow/rejected) doesn\'t matter for this setting.';

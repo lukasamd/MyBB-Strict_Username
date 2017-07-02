@@ -96,6 +96,16 @@ class strictUsername
     
     // Wrong chars in username
     private $wrongChars = array();
+	
+	// Regex pattern to match username
+	private $regex = '';
+	// Whether the username was denied because of the regex
+	private $regexDeniedUsername = false;
+	
+	// The words not allowed in a username
+	private $blockedWords = array();
+	// The word found in the username that was not allowed
+	private $blockedWordInUsername = '';
 
     /**
      * Constructor - add plugin hooks
@@ -115,24 +125,15 @@ class strictUsername
      */
     public function validateUsername()
     {
-        global $db, $lang, $user, $userhandler;
+        global $user;
 
         if (THIS_SCRIPT != 'member.php' && THIS_SCRIPT != 'usercp.php')
         {
             return;
         }
-
-        $this->init();
-        $this->setMode($this->getConfig('Mode'));
-        $this->checkUsername($user['username']);
-
-        if (sizeof($this->wrongChars) > 0)
-        {
-            $lang->load("strictUsername");
-
-            $userhandler->set_error("bad_characters_username");
-            $userhandler->set_error($lang->strictUsernameError . "'" . implode("', '", $this->wrongChars) . "'");
-        }
+		
+		$username = $user['username'];
+        $this->_validateUsername($username, false);
     }
 
     /**
@@ -140,18 +141,38 @@ class strictUsername
      */
     public function validateXMLHTTP()
     {
-        global $charset, $db, $lang, $mybb, $username;
+        global $username;
+		
+		$this->_validateUsername($username, true);
+    }
+	
+	private function _validateUsername($username, $ajaxRequest) {
+		global $lang, $userhandler;
 
         $this->init();
         $this->setMode($this->getConfig('Mode'));
         $this->checkUsername($username);
 
-        if (sizeof($this->wrongChars) > 0)
-        {
-            echo json_encode($lang->banned_characters_username . ": '" . implode("', '", $this->wrongChars) . "'");
-            exit;
+        $wrongCharsError = sizeof($this->wrongChars) > 0;
+		$hasBlockedWord = $this->blockedWordInUsername != '';
+        if ($wrongCharsError || $this->regexDeniedUsername || $hasBlockedWord) {
+			$lang->load("strictUsername");
+			$error = $lang->strictUsernameRegexError;
+			if ($hasBlockedWord)
+				$error = $lang->strictUsernameBlockedWordError . ": '" . $this->blockedWordInUsername . "'";
+			else if ($wrongCharsError)
+				$error = $lang->banned_characters_username . ": '" . implode("', '", $this->wrongChars) . "'";
+				
+			if ($ajaxRequest) {
+				echo json_encode($error);
+				exit;
+			} else {
+				$userhandler->set_error("bad_characters_username");
+				$userhandler->set_error($error);
+			}
+			
         }
-    }
+	}
 
     /**
      * Initiate allow/reject chatacters table
@@ -194,6 +215,12 @@ class strictUsername
             $additionalChars = array_diff($additionalChars, $this->chars);
             $this->chars = array_merge($this->chars, $additionalChars);
         }
+		
+		$this->regex = $this->getConfig('StatusRegex');
+		
+		if ($this->getConfig('StatusBlockedWords') != '')
+			$this->blockedWords = explode(',', $this->getConfig('StatusBlockedWords'));
+		
     }
 
     /**
@@ -203,7 +230,16 @@ class strictUsername
      */
     private function checkUsername($username)
     {
-        $this->wrongChars = array();
+        $this->resetPreviousUsernameResult();
+		
+		if ($this->checkBlockedWords($username))
+			return;
+		
+		if ($this->usingRegex()) {
+			$this->checkUsernameMatchesRegex($username);
+			if ($this->mode == 'allow') //regex and allow overwrites all other rules (since otherwise it will conflict with them)
+				return;
+		}
 
         switch ($this->mode)
         {
@@ -235,6 +271,35 @@ class strictUsername
                 break;
         }
     }
+	
+	private function resetPreviousUsernameResult() {
+		$this->wrongChars = array();
+		$this->regexDeniedUsername = false;
+		$this->blockedWordInUsername = '';
+	}
+	
+	private function checkBlockedWords($username) {
+		for ($i = 0; $i < count($this->blockedWords); $i++) {
+			$blockedWord = $this->blockedWords[$i];
+			if (mb_strstr($username, $blockedWord)) {
+				$this->blockedWordInUsername = $blockedWord;
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	private function checkUsernameMatchesRegex($username) {
+		$match = preg_match('/' . $this->regex . '/', $username);
+		if ($this->mode == 'allow')
+			$this->regexDeniedUsername = !$match;
+		else
+			$this->regexDeniedUsername = $match;
+	}
+	
+	private function usingRegex() {
+		return $this->regex != '';
+	}
 
     /**
      * Setter for check username mode 
